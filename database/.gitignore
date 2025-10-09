@@ -1,0 +1,17 @@
+*.sqlite*
+# ملفات Laravel الأساسية
+/vendor
+/node_modules
+
+# ملفات البيئة والتخزين
+.env
+.env.testing
+
+# الملفات المرفوعة للمستخدم (الصور والفيديوهات)
+/storage/*.log
+/bootstrap/cache/*.php
+
+# ملفات التخزين التي تحتوي على بيانات المستخدمين
+/storage/app/public/*
+/storage/framework/cache/*
+/storage/logs/*
