@@ -4,8 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-use function Laravel\Prompts\table;
-
 return new class extends Migration
 {
     /**
@@ -16,9 +14,10 @@ return new class extends Migration
         Schema::create('activities', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->date('date')->nullable();
-            $table->string('description')->nullable();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->text('description')->nullable();
+            $table->string('video_path'); // مسار الفيديو
+            $table->date('activity_date')->nullable(); // تاريخ النشاط
+            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // الأدمن الذي أضاف النشاط
             $table->timestamps();
         });
     }

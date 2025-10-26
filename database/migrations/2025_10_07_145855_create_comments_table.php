@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('comments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('poem_id')->constrained()->onDelete('cascade');
-    // المفتاح الخارجي للمستخدم: لربط التعليق بالكاتب
-    $table->foreignId('user_id')->constrained()->onDelete('cascade');
-    // محتوى التعليق
-    $table->text('content');
+            $table->foreignId('poem_id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('lesson_id')->nullable()->constrained()->onDelete('cascade');
+            // المفتاح الخارجي للمستخدم: لربط التعليق بالكاتب
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            // محتوى التعليق
+            $table->text('content');
             $table->timestamps();
         });
     }

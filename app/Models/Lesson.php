@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Favorite;
 
 class Lesson extends Model
 {
@@ -12,7 +13,8 @@ class Lesson extends Model
 'title',
 'saying_date',
 'description',
-'user_id'
+'user_id',
+'is_private',
     ];
 
     public function sources ()
@@ -27,13 +29,26 @@ class Lesson extends Model
     }
 
     public function favoritedBy()
-{
-    // المستخدمون الذين فضلوا هذه القصيدة: العديد لـ العديد عبر جدول 'favorites'
-    return $this->belongsToMany(User::class, 'favorites');
-}
+    {
+        // المستخدمون الذين فضلوا هذا الدرس: العديد لـ العديد عبر جدول 'lesson_favorites'
+        return $this->belongsToMany(User::class, 'lesson_favorites');
+    }
 
-public function isFavoritedBy(User $user): bool
-{
-    return $this->favoritedBy()->where('user_id', $user->id)->exists();
-}
+    public function favorites()
+    {
+        return $this->hasMany(LessonFavorite::class);
+    }
+
+    public function isFavoritedBy($user)
+    {
+        if (!$user) {
+            return false;
+        }
+        return $this->favorites()->where('user_id', $user->id)->exists(); 
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
 }

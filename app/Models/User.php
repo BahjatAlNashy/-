@@ -62,17 +62,45 @@ class User extends Authenticatable
    }
    public function activities()
    {
-    return $this->hasMany(activities::class);
+    return $this->hasMany(Activity::class);
    }
+
+   public function favoriteActivities()
+   {
+    return $this->belongsToMany(Activity::class, 'favorites', 'user_id', 'activity_id');
+   }
+
    public function favoritePoems()
 {
     // القصائد المفضلة: العديد لـ العديد عبر جدول 'favorites'
     return $this->belongsToMany(Poem::class, 'favorites');
 }
 
+public function favoriteLessons()
+{
+    // الدروس المفضلة: العديد لـ العديد عبر جدول 'lesson_favorites'
+    return $this->belongsToMany(Lesson::class, 'lesson_favorites');
+}
+
+public function favoriteSayings()
+{
+    // الأقوال المفضلة: العديد لـ العديد عبر جدول 'saying_favorites'
+    return $this->belongsToMany(Saying::class, 'saying_favorites');
+}
+
 public function comments()
     {
         return $this->hasMany(Comment::class);
     }
+
+public function images()
+{
+    return $this->hasMany(Image::class);
+}
+
+public function favoriteImages()
+{
+    return $this->belongsToMany(Image::class, 'favorite_images');
+}
     
 }

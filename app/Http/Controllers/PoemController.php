@@ -18,10 +18,10 @@ class PoemController extends Controller
             'title' => 'required|string|max:255|unique:poems,title',
             'saying_date' => 'nullable|date_format:Y-m-d',
             'description' => 'nullable|string',
-            'pdf_source' => 'nullable|file|mimes:pdf|max:10240',
-            'audio_source' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
-            'video_source' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200',
-            'is_private' => 'boolean', // ✨ قاعدة جديدة: يجب أن يكون منطقياً (True/False) ✨
+            'pdf_source.*' => 'nullable|file|mimes:pdf|max:10240',
+            'audio_source.*' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
+            'video_source.*' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200',
+            'is_private' => 'boolean',
         ]);
     
         $user = Auth::user();
@@ -39,7 +39,7 @@ class PoemController extends Controller
             'saying_date' => $validatedData['saying_date'],
             'description' => $validatedData['description'],
             'user_id' => Auth::user()->id,
-            'is_private'=>$validatedData['is_private']
+            'is_private'=>$validatedData['is_private'] ?? false,
         ]);
     
         // دالة مساعدة لتخزين المصادر
@@ -54,8 +54,8 @@ class PoemController extends Controller
             };
             
             $path = $file->store("poems/{$folder}", 'public');
-            $fullUrl = url(Storage::url($path));
-            // $fullUrl = Storage::url($path); 
+            // $fullUrl = url(Storage::url($path));
+            $fullUrl = Storage::url($path); 
             
             return $poem->sources()->create([
                 'source_type' => $type,
@@ -68,19 +68,28 @@ class PoemController extends Controller
             ]);
         };
     
-        // تخزين المصادر إذا كانت موجودة
+        // تخزين المصادر إذا كانت موجودة (دعم ملفات متعددة)
         $sources = [];
         
         if ($request->hasFile('pdf_source')) {
-            $sources[] = $storeSource('pdf', $request->file('pdf_source'));
+            $pdfFiles = is_array($request->file('pdf_source')) ? $request->file('pdf_source') : [$request->file('pdf_source')];
+            foreach ($pdfFiles as $pdfFile) {
+                $sources[] = $storeSource('pdf', $pdfFile);
+            }
         }
         
         if ($request->hasFile('audio_source')) {
-            $sources[] = $storeSource('audio', $request->file('audio_source'));
+            $audioFiles = is_array($request->file('audio_source')) ? $request->file('audio_source') : [$request->file('audio_source')];
+            foreach ($audioFiles as $audioFile) {
+                $sources[] = $storeSource('audio', $audioFile);
+            }
         }
         
         if ($request->hasFile('video_source')) {
-            $sources[] = $storeSource('video', $request->file('video_source'));
+            $videoFiles = is_array($request->file('video_source')) ? $request->file('video_source') : [$request->file('video_source')];
+            foreach ($videoFiles as $videoFile) {
+                $sources[] = $storeSource('video', $videoFile);
+            }
         }
     
         // تحميل العلاقة مع المصادر
@@ -102,11 +111,11 @@ class PoemController extends Controller
 
     public function AddSourcePoem (Request $request, $poem_id)
 {
-    // 1. التحقق من صحة المدخلات (نفس قواعد التحقق للملفات)
+    // 1. التحقق من صحة المدخلات (دعم ملفات متعددة)
     $validatedData = $request->validate([
-        'pdf_source' => 'nullable|file|mimes:pdf|max:10240',
-        'audio_source' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
-        'video_source' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200'
+        'pdf_source.*' => 'nullable|file|mimes:pdf|max:10240',
+        'audio_source.*' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
+        'video_source.*' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200'
     ]);
 
     // 2. البحث عن القصيدة
@@ -123,7 +132,7 @@ class PoemController extends Controller
     $user = Auth::user();
     
     // إذا لم يكن المستخدم مديراً ولم يكن مالكاً للقصيدة، يتم الرفض.
-    if ($user->role !== 'admin' || $poem->user_id !== $user->id) {
+    if ($user->role !== 'admin' && $poem->user_id !== $user->id) {
         return response()->json([
             'success' => false,
             'message' => 'غير مصرح لك بإضافة مصادر لهذه القصيدة.'
@@ -144,7 +153,9 @@ class PoemController extends Controller
         $path = $file->store("poems/{$folder}", 'public');
         
         // إنشاء الرابط الكامل باستخدام url()
-        $fullUrl = url(Storage::url($path)); 
+        // $fullUrl = url(Storage::url($path)); 
+        $fullUrl = Storage::url($path); 
+
 
         return $poem->sources()->create([
             'source_type' => $type,
@@ -154,22 +165,31 @@ class PoemController extends Controller
         ]);
     };
 
-    // 5. تخزين المصادر الجديدة
+    // 5. تخزين المصادر الجديدة (دعم ملفات متعددة)
     $sources = [];
     $message = "لم يتم إضافة أي مصدر.";
 
     if ($request->hasFile('pdf_source')) {
-        $sources[] = $storeSource('pdf', $request->file('pdf_source'));
+        $pdfFiles = is_array($request->file('pdf_source')) ? $request->file('pdf_source') : [$request->file('pdf_source')];
+        foreach ($pdfFiles as $pdfFile) {
+            $sources[] = $storeSource('pdf', $pdfFile);
+        }
         $message = "تمت إضافة المصادر بنجاح.";
     }
     
     if ($request->hasFile('audio_source')) {
-        $sources[] = $storeSource('audio', $request->file('audio_source'));
+        $audioFiles = is_array($request->file('audio_source')) ? $request->file('audio_source') : [$request->file('audio_source')];
+        foreach ($audioFiles as $audioFile) {
+            $sources[] = $storeSource('audio', $audioFile);
+        }
         $message = "تمت إضافة المصادر بنجاح.";
     }
     
     if ($request->hasFile('video_source')) {
-        $sources[] = $storeSource('video', $request->file('video_source'));
+        $videoFiles = is_array($request->file('video_source')) ? $request->file('video_source') : [$request->file('video_source')];
+        foreach ($videoFiles as $videoFile) {
+            $sources[] = $storeSource('video', $videoFile);
+        }
         $message = "تمت إضافة المصادر بنجاح.";
     }
 
@@ -211,6 +231,37 @@ public function toggleFavorite($poem_id)
 
 #____________________________________________________________________________________________________________
 
+    #deleteSource - حذف ملف مصدر واحد محدد
+    public function deleteSource($source_id)
+    {
+        // 1. البحث عن المصدر
+        $source = Source::findOrFail($source_id);
+        
+        // 2. جلب القصيدة المرتبطة
+        $poem = Poem::findOrFail($source->poem_id);
+        
+        // 3. التحقق من صلاحيات المستخدم
+        $user = Auth::user();
+        
+        if ($user->role != 'admin' && $poem->user_id != $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'غير مصرح لك بحذف هذا المصدر.'
+            ], 403);
+        }
+        
+        // 4. حذف الملف من التخزين
+        Storage::disk('public')->delete($source->source);
+        
+        // 5. حذف السجل من قاعدة البيانات
+        $source->delete();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'تم حذف المصدر بنجاح.'
+        ]);
+    }
+
     #delete
     public function destroy($id)
 {
@@ -221,7 +272,7 @@ public function toggleFavorite($poem_id)
     $user = Auth::user();
 
     // الشرط: إذا لم يكن المستخدم مديراً AND لم يكن مالك القصيدة
-    if ($user->role != 'admin'|| $poem->user_id != $user->id) {
+    if ($user->role != 'admin' && $poem->user_id != $user->id) {
         // ✨ هذا السطر هو مفتاح إيقاف التنفيذ! ✨
         return response()->json([ 
             'success' => false,
@@ -245,62 +296,120 @@ public function toggleFavorite($poem_id)
 }
 #SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH SEARCH 
 
-  public function search(Request $request)
-    {
-        $query = Poem::query();
+public function search(Request $request)
+{
+    // 💡 تحميل المستخدم من التوكن إذا كان موجوداً (المصادقة الاختيارية)
+    if (!Auth::check() && $request->bearerToken()) {
+        $userFromToken = Auth::guard('sanctum')->user();
+        if ($userFromToken) {
+            Auth::login($userFromToken);
+        }
+    }
+    
+    $user = Auth::user();
+    $query = Poem::query();
 
-        // 1. البحث حسب العنوان (Title) والوصف (Description) - بحث جزئي
-        // نستخدم where و orWhere في شرط واحد للبحث في كلا الحقلين بنفس القيمة
-        if ($request->filled('keyword')) {
-            $keyword = $request->input('keyword');
-            
-            $query->where(function ($q) use ($keyword) {
-                // البحث في العنوان
-                $q->where('title', 'LIKE', '%' . $keyword . '%')
-                  // أو البحث في الوصف
-                  ->orWhere('description', 'LIKE', '%' . $keyword . '%');
+    // 0. تطبيق منطق الخصوصية (Private Poems)
+    if (!Auth::check()) {
+        // الزائر (غير مسجل): يرى القصائد العامة فقط
+        $query->where('is_private', false);
+    }
+    // المسجلين: يرون كل شيء (عام + خاص) - لا حاجة لفلتر
+
+    // 1. البحث حسب العنوان والوصف
+    if ($request->filled('keyword')) {
+        $keyword = $request->input('keyword');
+        
+        $query->where(function ($q) use ($keyword) {
+            $q->where('title', 'LIKE', '%' . $keyword . '%')
+              ->orWhere('description', 'LIKE', '%' . $keyword . '%');
+        });
+    }
+
+    // 2. البحث حسب التاريخ
+    if ($request->filled('year')) {
+        $query->whereYear('saying_date', $request->input('year'));
+    }
+
+    if ($request->filled('month')) {
+        $query->whereMonth('saying_date', $request->input('month'));
+    }
+
+    if ($request->filled('date')) {
+        $date = $request->input('date');
+        $comparison = $request->input('date_comparison', '=');
+        
+        if (in_array($comparison, ['=', '>', '<', '>=', '<='])) {
+             $query->whereDate('saying_date', $comparison, $date);
+        } else {
+             $query->whereDate('saying_date', '=', $date);
+        }
+    }
+
+    // 3. الفلترة حسب نوع المصدر (Source Type)
+    if ($request->filled('source_type')) {
+        $sourceType = $request->input('source_type');
+        
+        // التحقق من أن نوع المصدر المدخل هو ضمن الأنواع المسموح بها
+        $allowedTypes = ['pdf', 'audio', 'video'];
+        
+        if (in_array(strtolower($sourceType), $allowedTypes)) {
+            // استخدام whereHas للفلترة بناءً على حقل في العلاقة (Sources)
+            $query->whereHas('sources', function ($q) use ($sourceType) {
+                $q->where('source_type', $sourceType);
             });
         }
-        
-        // 2. البحث حسب التاريخ (Saying Date) - الخيارات المرنة
-        
-        // أ. البحث بالسنة فقط
-        if ($request->filled('year')) {
-            $query->whereYear('saying_date', $request->input('year'));
-        }
-
-        // ب. البحث بالشهر فقط (ضمن أي سنة)
-        if ($request->filled('month')) {
-            $query->whereMonth('saying_date', $request->input('month'));
-        }
-
-        // ج. البحث بتاريخ محدد أو البحث عن تاريخ قبل/بعد تاريخ معين
-        if ($request->filled('date')) {
-            $date = $request->input('date');
-            
-            // تحقق من نوع المقارنة المطلوبة
-            $comparison = $request->input('date_comparison', '='); // = (مطابقة تامة)، > (بعد)، < (قبل)
-            
-            // تحقق من أن قيمة المقارنة المدخلة صحيحة لتجنب الأخطاء
-            if (in_array($comparison, ['=', '>', '<', '>=', '<='])) {
-                 $query->whereDate('saying_date', $comparison, $date);
-            } else {
-                 // إذا لم يتم تحديد مقارنة صالحة، نعود إلى المطابقة التامة
-                 $query->whereDate('saying_date', '=', $date);
-            }
-        }
-        
-        // 3. تنفيذ الاستعلام وجلب النتائج
-        $poems = $query->with('sources')->get();
-
-        // إرجاع الاستجابة
-        return response()->json([
-            'success' => true,
-            'count' => $poems->count(),
-            'message' => 'نتائج البحث عن القصائد',
-            'data' => $poems,
-        ]);
     }
+    
+    // 4. التحميل المبكر للعلاقات
+    $query->with(['sources', 'favorites']);
+
+    // 5. تطبيق الترتيب والتصفح (Pagination)
+    $poems = $query->orderBy('saying_date', 'desc')->paginate(15);
+
+    // 6. تنسيق البيانات بنفس طريقة index
+    $formattedPoems = $poems->through(function ($poem) use ($user) {
+        // حالة وجود المصادر
+        $hasPdf = $poem->sources->contains('source_type', 'pdf');
+        $hasAudio = $poem->sources->contains('source_type', 'audio');
+        $hasVideo = $poem->sources->contains('source_type', 'video');
+        
+        // حالة المفضلة
+        $isFavorited = false;
+        if ($user) {
+            $isFavorited = $poem->isFavoritedBy($user);
+        }
+
+        return [
+            'id' => $poem->id,
+            'title' => $poem->title,
+            'date' => $poem->saying_date,
+            
+            // حالة وجود الملفات
+            'has_pdf' => $hasPdf,
+            'has_audio' => $hasAudio,
+            'has_video' => $hasVideo,
+            
+            // حالة المفضلة
+            'is_favorited' => $isFavorited,
+        ];
+    })->items();
+
+    // 7. إرجاع الاستجابة مع معلومات التصفح
+    return response()->json([
+        'success' => true,
+        'message' => 'نتائج البحث عن القصائد',
+        // بيانات التصفح
+        'meta' => [
+            'page_number' => $poems->currentPage(),
+            'total_pages' => $poems->lastPage(),
+            'has_previous' => $poems->currentPage() > 1,
+            'has_next' => $poems->hasMorePages(),
+            'total_items' => $poems->total(),
+        ],
+        'data' => $formattedPoems,
+    ]);
+}
 
     #UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE UPDATE
 
@@ -313,17 +422,17 @@ public function toggleFavorite($poem_id)
             'saying_date' => 'nullable|date_format:Y-m-d',
             'description' => 'nullable|string',
             
-            // الملفات (قابلة للاستبدال أو الإضافة)
-            'pdf_source' => 'nullable|file|mimes:pdf|max:10240',
-            'audio_source' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
-            'video_source' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200'
+            // الملفات (إضافة ملفات جديدة دون حذف القديمة)
+            'pdf_source.*' => 'nullable|file|mimes:pdf|max:10240',
+            'audio_source.*' => 'nullable|file|mimes:mp3,wav,aac,ogg|max:10240',
+            'video_source.*' => 'nullable|file|mimes:mp4,avi,mov,wmv|max:51200'
         ]);
 
         // 2. البحث عن القصيدة والتحقق من الصلاحيات
         $poem = Poem::findOrFail($poem_id); 
         $user = Auth::user();
 
-        if ($user->role !== 'admin' || $poem->user_id !== $user->id) {
+        if ($user->role !== 'admin' && $poem->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'غير مصرح لك بتعديل هذه القصيدة.'
@@ -337,50 +446,49 @@ public function toggleFavorite($poem_id)
             'description' => $validatedData['description'] ?? $poem->description,
         ]);
 
-        // 4. دالة مساعدة لمعالجة تحديث المصدر
-        $handleSourceUpdate = function ($fileKey, $sourceType) use ($poem, $request) {
-            // تحقق: هل قام المستخدم برفع ملف جديد لهذا النوع؟
-            if ($request->hasFile($fileKey)) {
-                $file = $request->file($fileKey);
-                
-                // البحث عن مصدر موجود لنفس النوع (pdf, audio, video)
-                $existingSource = $poem->sources()->where('source_type', $sourceType)->first();
-
-                // تهيئة المسارات
-                $folder = match($sourceType) {
-                    'pdf' => 'pdfs',
-                    'audio' => 'audios',
-                    'video' => 'videos',
-                    default => 'others'
-                };
-                $newPath = $file->store("poems/{$folder}", 'public');
-                $fullUrl = url(Storage::url($newPath));
-
-                if ($existingSource) {
-                    // أ. استبدال: حذف الملف القديم من التخزين
-                    Storage::disk('public')->delete($existingSource->source);
-
-                    // ب. تحديث السجل بمسار الملف الجديد
-                    $existingSource->update([
-                        'source' => $newPath,
-                        'url' => $fullUrl,
-                    ]);
-                } else {
-                    // ج. إضافة جديدة: في حالة لم يكن هناك مصدر سابق وتم رفعه الآن
-                    $poem->sources()->create([
-                        'source_type' => $sourceType,
-                        'source' => $newPath,
-                        'url' => $fullUrl,
-                        'poem_id' => $poem->id,
-                    ]);
-                }
-            }
+        // 4. دالة مساعدة لإضافة مصادر جديدة (بدون حذف القديمة)
+        $storeSource = function ($type, $file) use ($poem) {
+            if (!$file) return null;
+            
+            $folder = match($type) {
+                'pdf' => 'pdfs',
+                'audio' => 'audios',
+                'video' => 'videos',
+                default => 'others'
+            };
+            
+            $path = $file->store("poems/{$folder}", 'public');
+            $fullUrl = Storage::url($path); 
+            
+            return $poem->sources()->create([
+                'source_type' => $type,
+                'source' => $path,
+                'poem_id' => $poem->id,
+                'url' => $fullUrl,
+            ]);
         };
 
-        // 5. تطبيق دالة التحديث على جميع أنواع الملفات
-        $handleSourceUpdate('pdf_source', 'pdf');
-        $handleSourceUpdate('audio_source', 'audio');
-        $handleSourceUpdate('video_source', 'video');
+        // 5. إضافة ملفات جديدة (دعم ملفات متعددة)
+        if ($request->hasFile('pdf_source')) {
+            $pdfFiles = is_array($request->file('pdf_source')) ? $request->file('pdf_source') : [$request->file('pdf_source')];
+            foreach ($pdfFiles as $pdfFile) {
+                $storeSource('pdf', $pdfFile);
+            }
+        }
+        
+        if ($request->hasFile('audio_source')) {
+            $audioFiles = is_array($request->file('audio_source')) ? $request->file('audio_source') : [$request->file('audio_source')];
+            foreach ($audioFiles as $audioFile) {
+                $storeSource('audio', $audioFile);
+            }
+        }
+        
+        if ($request->hasFile('video_source')) {
+            $videoFiles = is_array($request->file('video_source')) ? $request->file('video_source') : [$request->file('video_source')];
+            foreach ($videoFiles as $videoFile) {
+                $storeSource('video', $videoFile);
+            }
+        }
 
         // 6. إرجاع الاستجابة
         return response()->json([
@@ -397,23 +505,29 @@ public function toggleFavorite($poem_id)
 
     public function index(Request $request)
 {
+    // 💡 الحل: محاولة تحميل المستخدم من التوكن يدوياً (المصادقة الاختيارية)
+    // إذا لم يكن هناك مستخدم مسجل الدخول (Auth::check() == false)
+    // ولكن الطلب يحتوي على Bearer Token، نحاول تحميل المستخدم عبر Guard 'sanctum'.
+    if (!Auth::check() && $request->bearerToken()) {
+        $userFromToken = Auth::guard('sanctum')->user();
+        
+        // إذا نجح التحميل، نقوم بتسجيل دخول المستخدم مؤقتاً في الجلسة الحالية
+        if ($userFromToken) {
+             Auth::login($userFromToken);
+        }
+    }
     $user = Auth::user();
     $user_id = Auth::id();
 
     // 1. بناء الاستعلام وتطبيق منطق الخصوصية (Private Poems)
     $query = Poem::query();
     
-    // منطق الحماية: عرض العامة للجميع، والخاصة فقط للمالك.
-    if (Auth::check()) {
-        $query->where('is_private', false)
-              ->orWhere(function ($q) use ($user_id) {
-                  $q->where('is_private', true)
-                    ->where('user_id', $user_id);
-              });
-    } else {
-        // المستخدم غير المسجل يرى القصائد العامة فقط
+    // منطق الحماية: المسجلين يرون الكل، الزوار يرون العامة فقط
+    if (!Auth::check()) {
+        // الزائر (غير مسجل): يرى القصائد العامة فقط
         $query->where('is_private', false);
     }
+    // المسجلين: يرون كل شيء (عام + خاص) - لا حاجة لفلتر
 
     // 2. التحميل المبكر للعلاقات
     $query->with(['sources', 'favorites']); 
@@ -467,12 +581,20 @@ public function toggleFavorite($poem_id)
     ]);
 }
 
-public function show($poem_id)
+public function show(Request $request, $poem_id)
 {
+    // 💡 تحميل المستخدم من التوكن إذا كان موجوداً (المصادقة الاختيارية)
+    if (!Auth::check() && $request->bearerToken()) {
+        $userFromToken = Auth::guard('sanctum')->user();
+        if ($userFromToken) {
+            Auth::login($userFromToken);
+        }
+    }
+    
     $user = Auth::user();
 
     // 1. جلب القصيدة مع العلاقات المطلوبة: المستخدم (المؤلف)، المصادر، والتعليقات (مع مستخدمي التعليقات).
-    $poem = Poem::with(['user:id,name', 'sources', 'comments.user:id,name'])->find($poem_id);
+    $poem = Poem::with(['user:id,name', 'sources', 'comments.user:id,name', 'favorites'])->find($poem_id);
 
     if (!$poem) {
         return response()->json([
@@ -483,25 +605,35 @@ public function show($poem_id)
 
     // 2. تطبيق منطق الخصوصية (Privacy Logic)
     if ($poem->is_private) {
-        // إذا كانت خاصة، نتحقق أن المستخدم مسجل الدخول وهو مالك القصيدة
-        if (!$user || $poem->user_id !== $user->id) {
+        // إذا كانت خاصة، نتحقق أن المستخدم مسجل الدخول
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'هذه القصيدة خاصة ولا يمكن الوصول إليها.'
+                'message' => 'هذه القصيدة خاصة، يجب تسجيل الدخول للوصول إليها.'
             ], 403);
         }
     }
 
-    // 3. استخراج المصادر المحددة (Video, Audio, PDF)
-    $getVideoSource = $poem->sources->firstWhere('source_type', 'video');
-    $getAudioSource = $poem->sources->firstWhere('source_type', 'audio');
-    $getPdfSource = $poem->sources->firstWhere('source_type', 'pdf');
+    // 3. استخراج المصادر المحددة (Video, Audio, PDF) - دعم ملفات متعددة
+    $videoSources = $poem->sources->where('source_type', 'video');
+    $audioSources = $poem->sources->where('source_type', 'audio');
+    $pdfSources = $poem->sources->where('source_type', 'pdf');
     
-    // حساب حالة المفضلة
-    $isFavorited = $user ? $poem->isFavoritedBy($user) : false; 
+    // حساب حالة المفضلة بشكل صحيح
+    $isFavorited = false;
+    if ($user) {
+        $isFavorited = $poem->isFavoritedBy($user);
+    }
 
-    // 4. تنسيق بيانات التعليقات
-    $formattedComments = $poem->comments->map(function($comment) {
+    // 4. جلب التعليقات مع Pagination
+    $page = request()->input('page', 1);
+    $comments = $poem->comments()
+                     ->with('user:id,name')
+                     ->latest()
+                     ->paginate(15, ['*'], 'page', $page);
+
+    // تنسيق التعليقات
+    $formattedComments = $comments->through(function($comment) {
         return [
             'id' => $comment->id,
             'content' => $comment->content,
@@ -521,28 +653,93 @@ public function show($poem_id)
             'id' => $poem->id,
             'title' => $poem->title,
             'description' => $poem->description,
-            'date' => $poem->saying_date, // التاريخ
+            'date' => $poem->saying_date,
             
-            // المصادر المطلوبة
-            'video' => $getVideoSource ? [
-                'id' => $getVideoSource->id,
-                'url' => $getVideoSource->url,
-            ] : null,
-            'audio' => $getAudioSource ? [
-                'id' => $getAudioSource->id,
-                'url' => $getAudioSource->url,
-            ] : null,
-            'pdf' => $getPdfSource ? [
-                'id' => $getPdfSource->id,
-                'url' => $getPdfSource->url,
-            ] : null,
+            // المصادر المطلوبة (مصفوفات لدعم ملفات متعددة)
+            'videos' => $videoSources->map(function($source) {
+                return [
+                    'id' => $source->id,
+                    'url' => $source->url,
+                ];
+            })->values(),
+            'audios' => $audioSources->map(function($source) {
+                return [
+                    'id' => $source->id,
+                    'url' => $source->url,
+                ];
+            })->values(),
+            'pdfs' => $pdfSources->map(function($source) {
+                return [
+                    'id' => $source->id,
+                    'url' => $source->url,
+                ];
+            })->values(),
 
             'is_favorited' => $isFavorited,
-            
-            'comments' => $formattedComments,
-            'comments_count' => $poem->comments->count(),
             'author_name' => $poem->user->name ?? 'غير معروف',
+            
+            // التعليقات مع Pagination
+            'comments' => [
+                'data' => $formattedComments->items(),
+                'meta' => [
+                    'current_page' => $comments->currentPage(),
+                    'last_page' => $comments->lastPage(),
+                    'per_page' => $comments->perPage(),
+                    'total' => $comments->total(),
+                    'from' => $comments->firstItem(),
+                    'to' => $comments->lastItem(),
+                ]
+            ]
         ]
+    ]);
+}
+
+#getFavoritePoems - عرض جميع القصائد المفضلة للمستخدم
+public function getFavoritePoems()
+{
+    $user = Auth::user();
+    
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'يجب تسجيل الدخول أولاً.'
+        ], 401);
+    }
+
+    // جلب القصائد المفضلة مع العلاقات والتصفح (Pagination)
+    $favoritePoems = $user->favoritePoems()
+        ->with(['sources', 'user:id,name'])
+        ->orderBy('created_at', 'desc')
+        ->paginate(15);
+
+    // تنسيق البيانات بنفس طريقة index
+    $formattedPoems = $favoritePoems->through(function($poem) {
+        return [
+            'id' => $poem->id,
+            'title' => $poem->title,
+            'date' => $poem->saying_date,
+            
+            // حالة وجود المصادر
+            'has_pdf' => $poem->sources->contains('source_type', 'pdf'),
+            'has_audio' => $poem->sources->contains('source_type', 'audio'),
+            'has_video' => $poem->sources->contains('source_type', 'video'),
+            
+            'is_favorited' => true, // دائماً true لأنها في المفضلة
+        ];
+    })->items();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'تم جلب القصائد المفضلة بنجاح.',
+        // بيانات التصفح
+        'meta' => [
+            'page_number' => $favoritePoems->currentPage(),
+            'total_pages' => $favoritePoems->lastPage(),
+            'has_previous' => $favoritePoems->currentPage() > 1,
+            'has_next' => $favoritePoems->hasMorePages(),
+            'total_items' => $favoritePoems->total(),
+        ],
+        'data' => $formattedPoems
     ]);
 }
 }

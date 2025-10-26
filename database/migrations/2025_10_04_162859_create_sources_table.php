@@ -16,8 +16,9 @@ return new class extends Migration
             $table->string('source_type');
             $table->string('source');
             $table->string('url');
-            $table->foreignId('poem_id')->constrained('poems')->cascadeOnDelete();
-            // $table->foreignId('lesson_id')->constrained('lessons')->cascadeOnDelete();
+            $table->foreignId('poem_id')->nullable()->references('id')->on('poems')->cascadeOnDelete();
+            $table->foreignId('lesson_id')->nullable()->references('id')->on('lessons')->cascadeOnDelete();
+            
             $table->timestamps();
         });
     }

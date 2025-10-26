@@ -12,6 +12,7 @@ class Source extends Model
 'source_type',
 'source',
 'poem_id',
+'lesson_id',
 'url'
     ];
 

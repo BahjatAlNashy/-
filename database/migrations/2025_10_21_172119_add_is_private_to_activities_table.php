@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('poems', function (Blueprint $table) {
-            //
-            $table->boolean('is_private')->default(false)->after('description');
-
+        Schema::table('activities', function (Blueprint $table) {
+            $table->boolean('is_private')->default(false)->after('user_id'); // خاص أم عام
         });
     }
 
@@ -23,11 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('poems', function (Blueprint $table) {
-            //
-             Schema::table('poems', function (Blueprint $table) {
+        Schema::table('activities', function (Blueprint $table) {
             $table->dropColumn('is_private');
-        });
         });
     }
 };

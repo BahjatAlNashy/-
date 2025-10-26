@@ -17,6 +17,7 @@ return new class extends Migration
             $table->date('saying_date')->nullable();
             $table->string('description')->nullable();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_private')->default(false);
             $table->timestamps();
         });
     }
